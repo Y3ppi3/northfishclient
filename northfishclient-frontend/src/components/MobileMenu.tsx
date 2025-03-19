@@ -3,10 +3,15 @@ import { Link } from 'react-router-dom';
 
 interface MobileMenuProps {
     isOpen: boolean;
-    onClose: () => void;
+    setIsOpen: (isOpen: boolean) => void;
 }
 
-const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
+const MobileMenu = ({ isOpen, setIsOpen }: MobileMenuProps) => {
+    // Функция закрытия меню
+    const handleClose = () => {
+        setIsOpen(false);
+    };
+
     // Предотвращаем скролл при открытом меню
     useEffect(() => {
         if (isOpen) {
@@ -20,13 +25,27 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
         };
     }, [isOpen]);
 
+    // Добавляем обработчик для клавиши Escape
+    useEffect(() => {
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isOpen) {
+                handleClose();
+            }
+        };
+        
+        window.addEventListener('keydown', handleEsc);
+        return () => {
+            window.removeEventListener('keydown', handleEsc);
+        };
+    }, [isOpen]);
+
     return (
         <>
             {/* Затемнение за меню */}
             {isOpen && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-50 z-40"
-                    onClick={onClose}
+                    onClick={handleClose}
                     aria-hidden="true"
                 ></div>
             )}
@@ -41,7 +60,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                     <h2 className="text-xl font-bold text-blue-900">МЕНЮ</h2>
                     <button
                         className="text-gray-500 hover:text-gray-700"
-                        onClick={onClose}
+                        onClick={handleClose}
                         aria-label="Закрыть меню"
                     >
                         <svg
@@ -67,7 +86,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                             <Link
                                 to="/"
                                 className="block text-gray-700 hover:text-blue-800 font-medium uppercase"
-                                onClick={onClose}
+                                onClick={handleClose}
                             >
                                 ГЛАВНАЯ
                             </Link>
@@ -76,7 +95,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                             <Link
                                 to="/products"
                                 className="block text-gray-700 hover:text-blue-800 font-medium uppercase"
-                                onClick={onClose}
+                                onClick={handleClose}
                             >
                                 ПРОДУКЦИЯ
                             </Link>
@@ -85,7 +104,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                             <Link
                                 to="/production"
                                 className="block text-gray-700 hover:text-blue-800 font-medium uppercase"
-                                onClick={onClose}
+                                onClick={handleClose}
                             >
                                 ПРОИЗВОДСТВО
                             </Link>
@@ -94,7 +113,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                             <Link
                                 to="/recipes"
                                 className="block text-gray-700 hover:text-blue-800 font-medium uppercase"
-                                onClick={onClose}
+                                onClick={handleClose}
                             >
                                 РЕЦЕПТЫ
                             </Link>
@@ -103,7 +122,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                             <Link
                                 to="/about"
                                 className="block text-gray-700 hover:text-blue-800 font-medium uppercase"
-                                onClick={onClose}
+                                onClick={handleClose}
                             >
                                 О НАС
                             </Link>
@@ -112,7 +131,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                             <Link
                                 to="/contacts"
                                 className="block text-gray-700 hover:text-blue-800 font-medium uppercase"
-                                onClick={onClose}
+                                onClick={handleClose}
                             >
                                 КОНТАКТЫ
                             </Link>
@@ -124,7 +143,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                     <Link
                         to="/contacts"
                         className="block w-full text-center px-4 py-2 border border-blue-800 text-blue-800 font-medium rounded hover:bg-blue-800 hover:text-white transition-colors"
-                        onClick={onClose}
+                        onClick={handleClose}
                     >
                         Связаться с нами
                     </Link>

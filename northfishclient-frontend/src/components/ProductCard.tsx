@@ -13,18 +13,18 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({
-                         name,
-                         description,
-                         image,
-                         slug,
-                         categorySlug,
-                         price,
-                         weight,
-                         isNew = false,
-                         isPopular = false
-                     }: ProductCardProps) => {
+    name,
+    description,
+    image,
+    slug,
+    categorySlug,
+    price,
+    weight,
+    isNew = false,
+    isPopular = false
+}: ProductCardProps) => {
     return (
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden relative product-card">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden relative product-card p-4">
             {/* Badges */}
             {isNew && (
                 <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-md text-sm font-semibold z-10">
@@ -33,44 +33,32 @@ const ProductCard = ({
             )}
             {isPopular && (
                 <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-md text-sm font-semibold z-10">
-                    Хит продаж
+                    Популярное
                 </div>
             )}
-
-            <div className="w-full h-64 bg-gray-200 overflow-hidden">
-                <img
-                    src={image}
-                    alt={name}
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    onError={(e) => {
-                        const fallbacks = [
-                            `/images/products/${categorySlug}-category.jpg`,
-                            '/images/products/fish-category.jpg'
-                        ];
-                        (e.target as HTMLImageElement).src = fallbacks[0] || fallbacks[1];
-                    }}
-                />
+            
+            {/* Изображение товара */}
+            <Link to={`/products/${categorySlug}/${slug}`}>
+                <img src={image} alt={name} className="w-full h-48 object-cover rounded-md" />
+            </Link>
+            
+            {/* Информация о товаре */}
+            <div className="p-4">
+                <h3 className="text-lg font-semibold mb-1">
+                    <Link to={`/products/${categorySlug}/${slug}`} className="hover:text-blue-600 transition">
+                        {name}
+                    </Link>
+                </h3>
+                <p className="text-gray-600 text-sm mb-2">{description}</p>
+                {price && <p className="text-gray-800 font-bold">Цена: {price}</p>}
+                {weight && <p className="text-gray-500 text-sm">Вес: {weight}</p>}
             </div>
-
-            <div className="p-6 product-card-body">
-                <h3 className="text-xl font-bold text-blue-900 mb-2">{name}</h3>
-                <p className="text-gray-700 mb-4">{description}</p>
-
-                <div className="flex items-center justify-between mb-4 product-card-footer">
-                    {price && (
-                        <span className="text-lg font-bold text-blue-800">{price}</span>
-                    )}
-                    {weight && (
-                        <span className="text-gray-600">{weight}</span>
-                    )}
-                </div>
-
-                <Link
-                    to={`/products/${categorySlug}/${slug}`}
-                    className="btn-primary w-full block text-center"
-                >
-                    Подробнее
-                </Link>
+            
+            {/* Кнопка добавления в корзину */}
+            <div className="p-4 flex justify-center">
+                <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                    Добавить в корзину
+                </button>
             </div>
         </div>
     );

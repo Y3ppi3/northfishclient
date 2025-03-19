@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
 from database import get_db
@@ -12,10 +12,7 @@ router = APIRouter(prefix="/cart", tags=["Cart"])
 MAX_QUANTITY = 99
 
 @router.post("/", response_model=CartItemResponse)
-def add_to_cart(
-    cart_item: CartItemCreate, 
-    db: Session = Depends(get_db)
-):
+def add_to_cart(cart_item: CartItemCreate, db: Session = Depends(get_db)):
     """
     Добавление товара в корзину.
     - Если товар уже есть в корзине, увеличивает количество
@@ -48,10 +45,11 @@ def add_to_cart(
         # Проверка на максимальное количество с учетом уже имеющегося товара
         new_quantity = existing_item.quantity + cart_item.quantity
         if new_quantity > MAX_QUANTITY:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Общее количество товара не может превышать {MAX_QUANTITY}"
-            )
+            # Ограничиваем значение максимальным количеством
+            existing_item.quantity = MAX_QUANTITY
+            db.commit()
+            db.refresh(existing_item)
+            return existing_item
             
         # Обновляем количество существующего товара
         existing_item.quantity = new_quantity
@@ -78,37 +76,35 @@ def get_cart(db: Session = Depends(get_db)):
     # Жестко прописанный ID пользователя (TODO: заменить на авторизованного)
     user_id = 1
 
-    # Используем joinedload для эффективной загрузки связанных данных о продукте
-    cart_items = (
-        db.query(Cart)
-        .options(joinedload(Cart.product))
-        .filter(Cart.user_id == user_id)
-        .all()
-    )
-    return cart_items
+    try:
+        # Используем joinedload для эффективной загрузки связанных данных о продукте
+        cart_items = (
+            db.query(Cart)
+            .options(joinedload(Cart.product))
+            .filter(Cart.user_id == user_id)
+            .all()
+        )
+        
+        # Проверяем, нет ли товаров с количеством больше максимального
+        for item in cart_items:
+            if item.quantity > MAX_QUANTITY:
+                item.quantity = MAX_QUANTITY
+                db.commit()
+        
+        return cart_items
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении корзины: {str(e)}")
 
 @router.put("/{cart_id}", response_model=CartItemResponse)
 def update_cart_quantity(
     cart_id: int, 
-    quantity: int, 
+    quantity: int = Query(..., gt=0, le=MAX_QUANTITY), 
     db: Session = Depends(get_db)
 ):
     """
     Обновление количества товара в корзине.
     """
-    # Валидация количества
-    if quantity < 1:
-        raise HTTPException(
-            status_code=400, 
-            detail="Количество товара должно быть не менее 1"
-        )
-    
-    if quantity > MAX_QUANTITY:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Количество товара не может превышать {MAX_QUANTITY}"
-        )
-        
     # Жестко прописанный ID пользователя (TODO: заменить на авторизованного)
     user_id = 1
 
@@ -176,3 +172,27 @@ def get_cart_count(db: Session = Depends(get_db)):
         .count()
     )
     return cart_count
+
+@router.delete("/clear", response_model=dict)
+def clear_cart(db: Session = Depends(get_db)):
+    """
+    Полная очистка корзины для текущего пользователя.
+    """
+    # Жестко прописанный ID пользователя (TODO: заменить на авторизованного)
+    user_id = 1
+
+    try:
+        # Удаляем все товары пользователя из корзины
+        deleted_count = db.query(Cart).filter(Cart.user_id == user_id).delete()
+        db.commit()
+        
+        return {
+            "message": "Корзина успешно очищена", 
+            "deleted_items": deleted_count
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Ошибка при очистке корзины: {str(e)}"
+        )

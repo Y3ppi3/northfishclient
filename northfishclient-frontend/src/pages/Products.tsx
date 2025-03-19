@@ -1,122 +1,258 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { Link } from "react-router-dom";
 
-const Products = () => {
-    const productCategories = [
-        {
-            id: 1,
-            name: 'Рыба',
-            image: '/products-fish.jpg',
-            description: 'Свежемороженая, соленая и копченая рыба высшего качества из экологически чистых вод северных морей.',
-            slug: 'fish'
-        },
-        {
-            id: 2,
-            name: 'Икра',
-            image: '/products-caviar.jpg',
-            description: 'Икра высшего качества, упакованная с соблюдением всех норм для сохранения свежести и вкуса.',
-            slug: 'caviar'
-        },
-        {
-            id: 3,
-            name: 'Морепродукты',
-            image: '/products-seafood.jpg',
-            description: 'Широкий ассортимент свежемороженых морепродуктов: креветки, мидии, кальмары и многое другое.',
-            slug: 'seafood'
-        },
-        {
-            id: 4,
-            name: 'Полуфабрикаты',
-            image: '/products-semi finished.jpg',
-            description: 'Готовые к приготовлению блюда из рыбы и морепродуктов: котлеты, фрикадельки, тефтели и многое другое.',
-            slug: 'semi-finished'
-        },
-        {
-            id: 5,
-            name: 'Консервы',
-            image: '/products-canned.jpg',
-            description: 'Консервы из рыбы и морепродуктов: печень трески, горбуша, скумбрия, килька в томатном соусе и многое другое.',
-            slug: 'canned'
-        }
-    ];
+const Products = ({ updateCartCount }) => {
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const productsPerPage = 12;
 
-    return (
-        <>
-            {/* Hero Section */}
-            <section className="bg-blue-900 text-white py-20">
-                <div className="container mx-auto px-4 text-center">
-                    <h1 className="text-4xl md:text-5xl font-bold mb-6">Наша продукция</h1>
-                    <p className="text-xl max-w-3xl mx-auto">
-                        Мы предлагаем широкий ассортимент рыбной продукции высочайшего качества из северных морей России
-                    </p>
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchProducts(), fetchCategories()]);
+      setIsLoading(false);
+    };
+    fetchData();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get("http://127.0.0.1:8000/products");
+      setProducts(res.data);
+    } catch (error) {
+      console.error("Ошибка при загрузке продуктов:", error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get("http://127.0.0.1:8000/products/categories/");
+      setCategories(res.data);
+    } catch (error) {
+      console.error("Ошибка при загрузке категорий:", error);
+    }
+  };
+
+  const addToCart = async (productId, event) => {
+    event.preventDefault(); // Предотвращаем переход по ссылке
+    
+    try {
+      const button = event.currentTarget;
+      // Анимация для кнопки
+      button.innerText = "Добавлено ✓";
+      button.classList.add("bg-green-600");
+      
+      await axios.post("http://127.0.0.1:8000/cart/", {
+        product_id: productId,
+        quantity: 1,
+      });
+      
+      updateCartCount();
+      
+      // Возвращаем исходный текст после короткой задержки
+      setTimeout(() => {
+        button.innerText = "В корзину";
+        button.classList.remove("bg-green-600");
+      }, 1500);
+    } catch (error) {
+      console.error("Ошибка при добавлении в корзину:", error);
+    }
+  };
+
+  const filteredProducts = selectedCategory
+    ? products.filter((p) => p.category_id === selectedCategory)
+    : products;
+
+  const lastProductIndex = currentPage * productsPerPage;
+  const firstProductIndex = lastProductIndex - productsPerPage;
+  const currentProducts = filteredProducts.slice(firstProductIndex, lastProductIndex);
+
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+
+  // Функция для генерации границ пагинации
+  const getPaginationRange = () => {
+    const delta = 2; // Количество страниц до и после текущей
+    let range = [];
+    
+    // Всегда показываем первую страницу
+    range.push(1);
+    
+    // Создаем диапазон вокруг текущей страницы
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
+    }
+    
+    // Всегда показываем последнюю страницу, если она существует
+    if (totalPages > 1) {
+      range.push(totalPages);
+    }
+    
+    // Добавляем многоточия, где нужно
+    let result = [];
+    let lastVal = 0;
+    
+    for (const val of range) {
+      if (lastVal && val - lastVal > 1) {
+        result.push("...");
+      }
+      result.push(val);
+      lastVal = val;
+    }
+    
+    return result;
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 my-8">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">Каталог продукции</h1>
+      
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Боковая панель с категориями - фиксированное положение */}
+        <aside className="lg:w-1/4">
+          <div className="bg-white shadow-sm rounded-lg p-5 lg:sticky lg:top-5">
+            <h2 className="text-xl font-medium text-gray-800 mb-4 pb-2 border-b">Категории</h2>
+            <ul className="space-y-1">
+              <li>
+                <button 
+                  onClick={() => {
+                    setSelectedCategory("");
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left py-2 px-3 rounded transition-colors ${
+                    selectedCategory === "" 
+                    ? "bg-blue-50 text-blue-800 font-medium" 
+                    : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  Все товары
+                </button>
+              </li>
+              {categories.map((cat) => (
+                <li key={cat.id}>
+                  <button 
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full text-left py-2 px-3 rounded transition-colors ${
+                      selectedCategory === cat.id 
+                      ? "bg-blue-50 text-blue-800 font-medium" 
+                      : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+
+        {/* Основной контент */}
+        <main className="lg:w-3/4">
+          {/* Loader */}
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-800"></div>
+            </div>
+          ) : (
+            <>
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-gray-500 text-lg">Товары не найдены</p>
                 </div>
-            </section>
-
-            {/* Products Grid */}
-            <section className="py-16">
-                <div className="container mx-auto px-4">
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {productCategories.map((category) => (
-                            <div
-                                key={category.id}
-                                className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
-                            >
-                                <div className="w-full h-64 bg-gray-200">
-                                    <img
-                                        src={category.image}
-                                        alt={category.name}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).src = `/images/products/${category.slug}-category.jpg`;
-                                        }}
-                                    />
-                                </div>
-                                <div className="p-6">
-                                    <h3 className="text-2xl font-bold text-blue-900 mb-3">{category.name}</h3>
-                                    <p className="text-gray-700">{category.description}</p>
-                                    <Link to={`/products/${category.slug}`} className="mt-4 btn-primary inline-block text-center">
-                                        Подробнее
-                                    </Link>
-                                </div>
+              ) : (
+                <>
+                  {/* Сетка продуктов */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {currentProducts.map((product) => (
+                      <div key={product.id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <Link to={`/products/${product.id}`} className="block relative">
+                          <div className="h-48 overflow-hidden">
+                            <img
+                              src={product.image_url || "/placeholder.jpg"}
+                              alt={product.name}
+                              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                            />
+                          </div>
+                          <div className="p-4">
+                            <h3 className="font-medium text-gray-800 text-lg mb-1 line-clamp-2">{product.name}</h3>
+                            <p className="text-gray-500 text-sm mb-3 line-clamp-2">{product.description || "Без описания"}</p>
+                            <div className="flex justify-between items-center">
+                              <span className="text-lg font-bold text-blue-800">{product.price?.toLocaleString()} ₽</span>
+                              <button
+                                onClick={(e) => addToCart(product.id, e)}
+                                className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                              >
+                                В корзину
+                              </button>
                             </div>
+                          </div>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Пагинация */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center mt-10">
+                      <nav className="inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                            currentPage === 1 
+                            ? "text-gray-300 cursor-not-allowed" 
+                            : "text-gray-500 hover:bg-gray-50"
+                          }`}
+                        >
+                          <span className="sr-only">Previous</span>
+                          &larr;
+                        </button>
+                        
+                        {getPaginationRange().map((page, index) => (
+                          <button
+                            key={index}
+                            onClick={() => page !== "..." && setCurrentPage(page)}
+                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                              page === currentPage
+                                ? "z-10 bg-blue-50 border-blue-700 text-blue-800"
+                                : page === "..."
+                                ? "text-gray-700"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
                         ))}
+                        
+                        <button
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                          className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                            currentPage === totalPages 
+                            ? "text-gray-300 cursor-not-allowed" 
+                            : "text-gray-500 hover:bg-gray-50"
+                          }`}
+                        >
+                          <span className="sr-only">Next</span>
+                          &rarr;
+                        </button>
+                      </nav>
                     </div>
-                </div>
-            </section>
-
-            {/* Quality Guarantee */}
-            <section className="py-16 bg-gray-50">
-                <div className="container mx-auto px-4">
-                    <div className="max-w-3xl mx-auto text-center">
-                        <h2 className="text-3xl font-bold text-blue-900 mb-6">Гарантия качества</h2>
-                        <p className="text-lg mb-8">
-                            Вся наша продукция сертифицирована и соответствует самым высоким стандартам качества.
-                            Мы контролируем каждый этап производства, от вылова до упаковки.
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-4">
-                            <div className="bg-white p-4 rounded-lg shadow flex items-center">
-                                <svg className="w-10 h-10 text-blue-900 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                <span>ХАССП сертификация</span>
-                            </div>
-                            <div className="bg-white p-4 rounded-lg shadow flex items-center">
-                                <svg className="w-10 h-10 text-blue-900 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                <span>ISO 9001:2015</span>
-                            </div>
-                            <div className="bg-white p-4 rounded-lg shadow flex items-center">
-                                <svg className="w-10 h-10 text-blue-900 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                <span>Экологический сертификат</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </>
-    );
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
 };
 
 export default Products;
